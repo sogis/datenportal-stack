@@ -1,4 +1,14 @@
 # ---> Linux
+.env
+.env.*
+!.env.example
+local/crc/settings.env
+deploy/overlays/crc/config.env
+deploy/overlays/crc/secrets.env
+deploy/.generated/
+.local/
+__pycache__/
+
 *~
 
 # temporary files which can be created if a process still has a handle open of a deleted file
@@ -136,4 +146,3 @@ buildNumber.properties
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
-

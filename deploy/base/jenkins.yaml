@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-home
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: 10Gi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: jenkins}
+  template:
+    metadata:
+      labels: {app: jenkins}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: gradle-cache
+          image: datenportal-jenkins:crc
+          imagePullPolicy: Always
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              mkdir -p /var/jenkins_home/.gradle
+              if [ ! -f /var/jenkins_home/.gradle/.crc-seeded ]; then
+                cp -R /opt/datenportal/offline-bundle/gradle-user-home/. /var/jenkins_home/.gradle/
+                touch /var/jenkins_home/.gradle/.crc-seeded
+              fi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: home, mountPath: /var/jenkins_home}
+      containers:
+        - name: jenkins
+          image: datenportal-jenkins:crc
+          imagePullPolicy: Always
+          ports:
+            - {name: http, containerPort: 8080}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 500m, memory: 1Gi}
+            limits: {cpu: '3', memory: 4Gi}
+          env:
+            - {name: JENKINS_RUNTIME_MODE, value: dev}
+            - {name: JENKINS_OPTS, value: '--prefix=/jenkins'}
+            - {name: JENKINS_JAVA_OPTS, value: '-Djenkins.install.runSetupWizard=false -Xmx1536m'}
+            - {name: CASC_JENKINS_CONFIG, value: /etc/datenportal/jenkins.yaml}
+            - {name: HOME, value: /var/jenkins_home}
+            - {name: GRADLE_USER_HOME, value: /var/jenkins_home/.gradle}
+            - {name: THEMEN_REPO_MODE, value: managed-git}
+            - {name: THEMEN_REPO_PATH, value: ''}
+            - {name: THEMEN_REPO_WRITE_BACK_ENABLED, value: 'false'}
+            - {name: ORG_GRADLE_PROJECT_gitWriteBack, value: 'false'}
+            - {name: ORG_GRADLE_PROJECT_s3Publish, value: 'true'}
+            - {name: ORG_GRADLE_PROJECT_portalReloadUrl, value: 'http://sodata:8080/admin/catalog/reload'}
+            - name: JENKINS_URL
+              valueFrom: {configMapKeyRef: {name: stack-config, key: JENKINS_URL}}
+            - name: THEMEN_REPO_URL
+              valueFrom: {configMapKeyRef: {name: stack-config, key: THEMEN_REPO_URL}}
+            - name: THEMEN_REPO_BRANCH
+              valueFrom: {configMapKeyRef: {name: stack-config, key: THEMEN_REPO_BRANCH}}
+            - name: ORG_GRADLE_PROJECT_publicationManifestUrl
+              valueFrom: {configMapKeyRef: {name: stack-config, key: PUBLICATION_MANIFEST_URL}}
+            - name: ORG_GRADLE_PROJECT_catalogDownloadBase
+              valueFrom: {configMapKeyRef: {name: stack-config, key: DOWNLOAD_BASE_URL}}
+            - name: ORG_GRADLE_PROJECT_s3Endpoint
+              valueFrom: {configMapKeyRef: {name: stack-config, key: S3_ENDPOINT}}
+            - name: ORG_GRADLE_PROJECT_s3Region
+              valueFrom: {configMapKeyRef: {name: stack-config, key: S3_REGION}}
+            - name: ORG_GRADLE_PROJECT_s3BucketName
+              valueFrom: {configMapKeyRef: {name: stack-config, key: S3_BUCKET}}
+            - name: ORG_GRADLE_PROJECT_s3Acl
+              valueFrom: {configMapKeyRef: {name: stack-config, key: S3_ACL}}
+            - name: ORG_GRADLE_PROJECT_s3AccessKey
+              valueFrom: {secretKeyRef: {name: stack-secrets, key: S3_ACCESS_KEY}}
+            - name: ORG_GRADLE_PROJECT_s3SecretKey
+              valueFrom: {secretKeyRef: {name: stack-secrets, key: S3_SECRET_KEY}}
+            - name: ORG_GRADLE_PROJECT_portalReloadToken
+              valueFrom: {secretKeyRef: {name: stack-secrets, key: PORTAL_RELOAD_TOKEN}}
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: stack-secrets, key: JENKINS_ADMIN_PASSWORD}}
+          startupProbe:
+            httpGet: {path: /jenkins/login, port: http}
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /jenkins/login, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /jenkins/login, port: http}
+            periodSeconds: 30
+            failureThreshold: 5
+          volumeMounts:
+            - {name: home, mountPath: /var/jenkins_home}
+            - {name: casc, mountPath: /etc/datenportal, readOnly: true}
+      volumes:
+        - name: home
+          persistentVolumeClaim: {claimName: jenkins-home}
+        - name: casc
+          configMap: {name: jenkins-casc}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+spec:
+  selector: {app: jenkins}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

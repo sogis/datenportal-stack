@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sodata
+spec:
+  # Erst nach erfolgreicher Prüfung von current.json hochskalieren.
+  replicas: 0
+  selector:
+    matchLabels: {app: sodata}
+  template:
+    metadata:
+      labels: {app: sodata}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: sodata
+          image: datenportal-sodata:crc
+          imagePullPolicy: Always
+          ports:
+            - {name: http, containerPort: 8080}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: '2', memory: 2Gi}
+          env:
+            - {name: DATENPORTAL_CATALOG_SOURCE_TYPE, value: manifest}
+            - {name: DATENPORTAL_CATALOG_DUCKDB_SOURCE_TYPE, value: manifest}
+            - {name: SERVER_FORWARD_HEADERS_STRATEGY, value: framework}
+            - name: DATENPORTAL_CATALOG_HTTP_URL
+              valueFrom: {configMapKeyRef: {name: stack-config, key: PUBLICATION_MANIFEST_URL}}
+            - name: DATENPORTAL_CATALOG_DOWNLOAD_URL
+              valueFrom: {configMapKeyRef: {name: stack-config, key: DOWNLOAD_BASE_URL}}
+            - name: DATENPORTAL_ADMIN_RELOAD_TOKEN
+              valueFrom: {secretKeyRef: {name: stack-secrets, key: PORTAL_RELOAD_TOKEN}}
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sodata
+spec:
+  selector: {app: sodata}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

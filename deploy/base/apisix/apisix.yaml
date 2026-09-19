@@ -1,0 +1,54 @@
+routes:
+  - id: health
+    uri: /gateway-health
+    plugins:
+      serverless-pre-function:
+        phase: rewrite
+        functions:
+          - 'return function() ngx.say("ok"); return ngx.exit(200) end'
+  - id: editor-root
+    uri: /metadaten-editor
+    plugins:
+      redirect: {uri: /metadaten-editor/, ret_code: 308}
+  - id: editor
+    uri: /metadaten-editor/*
+    plugins:
+      proxy-rewrite:
+        regex_uri: ['^/metadaten-editor/(.*)', '/$1']
+        headers:
+          set: {X-Forwarded-Prefix: /metadaten-editor, X-Forwarded-Proto: https}
+    upstream:
+      type: roundrobin
+      nodes: {'${{EDITOR_UPSTREAM:=datenblatt-editor:8080}}': 1}
+  - id: jenkins-root
+    uri: /jenkins
+    plugins:
+      redirect: {uri: /jenkins/, ret_code: 308}
+  - id: jenkins
+    uri: /jenkins/*
+    plugins:
+      proxy-rewrite:
+        headers:
+          set: {X-Forwarded-Proto: https}
+    upstream:
+      type: roundrobin
+      nodes: {'${{JENKINS_UPSTREAM:=jenkins:8080}}': 1}
+  - id: block-admin
+    uris: [/admin/*, /actuator/*]
+    priority: 20
+    plugins:
+      serverless-pre-function:
+        phase: rewrite
+        functions:
+          - 'return function() return ngx.exit(404) end'
+  - id: portal
+    uri: /*
+    priority: -10
+    plugins:
+      proxy-rewrite:
+        headers:
+          set: {X-Forwarded-Proto: https}
+    upstream:
+      type: roundrobin
+      nodes: {'${{SODATA_UPSTREAM:=sodata:8080}}': 1}
+#END

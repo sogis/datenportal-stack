@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: datenportal
+resources:
+  - ../../base
+  - route.yaml
+configMapGenerator:
+  - name: stack-config
+    envs: [config.env]
+images:
+  - name: datenportal-sodata
+    newName: image-registry.openshift-image-registry.svc:5000/datenportal/sodata
+    newTag: crc
+  - name: datenportal-jenkins
+    newName: image-registry.openshift-image-registry.svc:5000/datenportal/jenkins
+    newTag: crc

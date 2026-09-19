@@ -1,0 +1,18 @@
+apisix:
+  node_listen: 9080
+  enable_ipv6: false
+deployment:
+  role: data_plane
+  role_data_plane:
+    config_provider: yaml
+nginx_config:
+  worker_processes: 1
+  error_log: /dev/stderr
+  http_configuration_snippet: |
+    client_body_temp_path /tmp/client_body_temp;
+    proxy_temp_path /tmp/proxy_temp;
+    fastcgi_temp_path /tmp/fastcgi_temp;
+    uwsgi_temp_path /tmp/uwsgi_temp;
+    scgi_temp_path /tmp/scgi_temp;
+  http:
+    access_log: /dev/stdout

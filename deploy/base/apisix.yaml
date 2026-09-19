@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: apisix}
+  template:
+    metadata:
+      labels: {app: apisix}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: writable-runtime
+          image: apache/apisix:3.14.1-debian
+          command: [/bin/sh, -ec]
+          args: ['cp -R /usr/local/apisix/conf/. /work/']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: runtime, mountPath: /work}
+      containers:
+        - name: apisix
+          image: apache/apisix:3.14.1-debian
+          env:
+            - {name: APISIX_STAND_ALONE, value: 'true'}
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - {name: EDITOR_UPSTREAM, value: 'datenblatt-editor.$(POD_NAMESPACE).svc.cluster.local:8080'}
+            - {name: JENKINS_UPSTREAM, value: 'jenkins.$(POD_NAMESPACE).svc.cluster.local:8080'}
+            - {name: SODATA_UPSTREAM, value: 'sodata.$(POD_NAMESPACE).svc.cluster.local:8080'}
+          ports:
+            - {name: http, containerPort: 9080}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /gateway-health, port: http}
+          livenessProbe:
+            httpGet: {path: /gateway-health, port: http}
+            initialDelaySeconds: 20
+          volumeMounts:
+            - {name: runtime, mountPath: /usr/local/apisix/conf}
+            - {name: logs, mountPath: /usr/local/apisix/logs}
+            - {name: config, mountPath: /usr/local/apisix/conf/config.yaml, subPath: config.yaml, readOnly: true}
+            - {name: config, mountPath: /usr/local/apisix/conf/apisix.yaml, subPath: apisix.yaml, readOnly: true}
+      volumes:
+        - name: runtime
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+        - name: config
+          configMap: {name: apisix-config}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix
+spec:
+  selector: {app: apisix}
+  ports:
+    - {name: http, port: 9080, targetPort: http}
