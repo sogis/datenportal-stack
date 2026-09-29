@@ -3,8 +3,7 @@ kind: Deployment
 metadata:
   name: sodata
 spec:
-  # Erst nach erfolgreicher Prüfung von current.json hochskalieren.
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels: {app: sodata}
   template:
@@ -17,8 +16,8 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: sodata
-          image: datenportal-sodata:crc
-          imagePullPolicy: Always
+          image: sogis/datenportal-sodata:0.1.5
+          imagePullPolicy: IfNotPresent
           ports:
             - {name: http, containerPort: 8080}
           securityContext:

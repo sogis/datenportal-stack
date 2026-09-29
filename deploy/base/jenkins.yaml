@@ -27,15 +27,15 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       initContainers:
         - name: gradle-cache
-          image: datenportal-jenkins:crc
-          imagePullPolicy: Always
+          image: sogis/datenportal-jenkins:0.1.0-2
+          imagePullPolicy: IfNotPresent
           command: [/bin/sh, -ec]
           args:
             - |
               mkdir -p /var/jenkins_home/.gradle
-              if [ ! -f /var/jenkins_home/.gradle/.crc-seeded ]; then
+              if [ ! -f /var/jenkins_home/.gradle/.runtime-seeded ]; then
                 cp -R /opt/datenportal/offline-bundle/gradle-user-home/. /var/jenkins_home/.gradle/
-                touch /var/jenkins_home/.gradle/.crc-seeded
+                touch /var/jenkins_home/.gradle/.runtime-seeded
               fi
           securityContext:
             allowPrivilegeEscalation: false
@@ -44,8 +44,8 @@ spec:
             - {name: home, mountPath: /var/jenkins_home}
       containers:
         - name: jenkins
-          image: datenportal-jenkins:crc
-          imagePullPolicy: Always
+          image: sogis/datenportal-jenkins:0.1.0-2
+          imagePullPolicy: IfNotPresent
           ports:
             - {name: http, containerPort: 8080}
           securityContext:
@@ -55,7 +55,6 @@ spec:
             requests: {cpu: 500m, memory: 1Gi}
             limits: {cpu: '3', memory: 4Gi}
           env:
-            - {name: JENKINS_RUNTIME_MODE, value: dev}
             - {name: JENKINS_OPTS, value: '--prefix=/jenkins'}
             - {name: JENKINS_JAVA_OPTS, value: '-Djenkins.install.runSetupWizard=false -Xmx1536m'}
             - {name: CASC_JENKINS_CONFIG, value: /etc/datenportal/jenkins.yaml}
@@ -91,8 +90,6 @@ spec:
               valueFrom: {secretKeyRef: {name: stack-secrets, key: S3_SECRET_KEY}}
             - name: ORG_GRADLE_PROJECT_portalReloadToken
               valueFrom: {secretKeyRef: {name: stack-secrets, key: PORTAL_RELOAD_TOKEN}}
-            - name: JENKINS_ADMIN_PASSWORD
-              valueFrom: {secretKeyRef: {name: stack-secrets, key: JENKINS_ADMIN_PASSWORD}}
           startupProbe:
             httpGet: {path: /jenkins/login, port: http}
             periodSeconds: 10
@@ -111,7 +108,7 @@ spec:
         - name: home
           persistentVolumeClaim: {claimName: jenkins-home}
         - name: casc
-          configMap: {name: jenkins-casc}
+          secret: {secretName: jenkins-production-jcasc}
 ---
 apiVersion: v1
 kind: Service

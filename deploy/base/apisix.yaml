@@ -31,9 +31,10 @@ spec:
             - {name: APISIX_STAND_ALONE, value: 'true'}
             - name: POD_NAMESPACE
               valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
-            - {name: EDITOR_UPSTREAM, value: 'datenblatt-editor.$(POD_NAMESPACE).svc.cluster.local:8080'}
-            - {name: JENKINS_UPSTREAM, value: 'jenkins.$(POD_NAMESPACE).svc.cluster.local:8080'}
-            - {name: SODATA_UPSTREAM, value: 'sodata.$(POD_NAMESPACE).svc.cluster.local:8080'}
+            - {name: EDITOR_HOST, value: 'datenblatt-editor.$(POD_NAMESPACE).svc.cluster.local'}
+            - {name: JENKINS_HOST, value: 'jenkins.$(POD_NAMESPACE).svc.cluster.local'}
+            - {name: DOCS_HOST, value: 'dokumentation.$(POD_NAMESPACE).svc.cluster.local'}
+            - {name: SODATA_HOST, value: 'sodata.$(POD_NAMESPACE).svc.cluster.local'}
           ports:
             - {name: http, containerPort: 9080}
           securityContext:

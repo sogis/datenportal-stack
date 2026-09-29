@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-home
+spec:
+  storageClassName: STORAGECLASS_ERSETZEN
+  resources:
+    requests: {storage: 10Gi}

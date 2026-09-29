@@ -1,6 +1,8 @@
 apisix:
   node_listen: 9080
   enable_ipv6: false
+  ssl:
+    enable: false
 deployment:
   role: data_plane
   role_data_plane:
@@ -16,3 +18,4 @@ nginx_config:
     scgi_temp_path /tmp/scgi_temp;
   http:
     access_log: /dev/stdout
+    client_max_body_size: 256m

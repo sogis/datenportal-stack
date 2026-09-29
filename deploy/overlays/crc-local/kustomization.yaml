@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../crc]
+images:
+  - name: sogis/datenportal-sodata
+    newName: image-registry.openshift-image-registry.svc:5000/datenportal/sodata
+    newTag: crc
+  - name: sogis/datenportal-jenkins
+    newName: image-registry.openshift-image-registry.svc:5000/datenportal/jenkins
+    newTag: crc
+patches:
+  - target: {kind: Deployment, name: 'jenkins|sodata'}
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+  - target: {kind: Deployment, name: jenkins}
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/initContainers/0/imagePullPolicy
+        value: Always

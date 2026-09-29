@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 local/crc/settings.env
+deploy/overlays/operator/config.env
+deploy/overlays/operator/jenkins.yaml
 deploy/overlays/crc/config.env
 deploy/overlays/crc/secrets.env
 deploy/.generated/

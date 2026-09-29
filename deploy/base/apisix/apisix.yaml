@@ -1,29 +1,38 @@
 routes:
-  - id: health
+  - id: gateway-health
     uri: /gateway-health
     plugins:
       serverless-pre-function:
         phase: rewrite
         functions:
           - 'return function() ngx.say("ok"); return ngx.exit(200) end'
-  - id: editor-root
-    uri: /metadaten-editor
+
+  # Block these paths before the public portal catch-all, for every HTTP method.
+  - id: internal-paths
+    priority: 100
+    uris: [/admin, /admin/*, /actuator, /actuator/*, /apisix/admin, /apisix/admin/*]
     plugins:
-      redirect: {uri: /metadaten-editor/, ret_code: 308}
-  - id: editor
-    uri: /metadaten-editor/*
+      serverless-pre-function:
+        phase: rewrite
+        functions:
+          - 'return function() return ngx.exit(403) end'
+
+  - id: delivery-entry
+    uris: [/anlieferung, /anlieferung/]
     plugins:
-      proxy-rewrite:
-        regex_uri: ['^/metadaten-editor/(.*)', '/$1']
-        headers:
-          set: {X-Forwarded-Prefix: /metadaten-editor, X-Forwarded-Proto: https}
-    upstream:
-      type: roundrobin
-      nodes: {'${{EDITOR_UPSTREAM:=datenblatt-editor:8080}}': 1}
+      redirect:
+        uri: /jenkins/gretl-datenportal/
+        ret_code: 302
+        append_query_string: true
+
   - id: jenkins-root
     uri: /jenkins
     plugins:
-      redirect: {uri: /jenkins/, ret_code: 308}
+      redirect:
+        uri: /jenkins/
+        ret_code: 308
+        append_query_string: true
+
   - id: jenkins
     uri: /jenkins/*
     plugins:
@@ -32,23 +41,102 @@ routes:
           set: {X-Forwarded-Proto: https}
     upstream:
       type: roundrobin
-      nodes: {'${{JENKINS_UPSTREAM:=jenkins:8080}}': 1}
-  - id: block-admin
-    uris: [/admin/*, /actuator/*]
-    priority: 20
+      pass_host: pass
+      timeout:
+        connect: 10
+        send: 300
+        read: 300
+      nodes:
+        - host: '${{JENKINS_HOST:=jenkins}}'
+          port: ${{JENKINS_PORT:=8080}}
+          weight: 1
+
+  - id: editor-legacy
+    uris: [/metadaten-editor, /metadaten-editor/*]
     plugins:
-      serverless-pre-function:
-        phase: rewrite
-        functions:
-          - 'return function() return ngx.exit(404) end'
+      redirect:
+        regex_uri: ['^/metadaten-editor/?(.*)', '/datenblatt-editor/$1']
+        ret_code: 308
+        append_query_string: true
+
+  - id: editor-root
+    uri: /datenblatt-editor
+    plugins:
+      redirect:
+        uri: /datenblatt-editor/
+        ret_code: 308
+        append_query_string: true
+
+  - id: editor
+    uri: /datenblatt-editor/*
+    plugins:
+      proxy-rewrite:
+        regex_uri: ['^/datenblatt-editor/(.*)', '/$1']
+        headers:
+          set:
+            X-Forwarded-Prefix: /datenblatt-editor
+            X-Forwarded-Proto: https
+    upstream:
+      type: roundrobin
+      nodes:
+        - host: '${{EDITOR_HOST:=datenblatt-editor}}'
+          port: ${{EDITOR_PORT:=8080}}
+          weight: 1
+
+  - id: docs-root
+    uri: /dokumentation
+    plugins:
+      redirect:
+        uri: /dokumentation/
+        ret_code: 308
+        append_query_string: true
+
+  - id: docs
+    uri: /dokumentation/*
+    plugins:
+      proxy-rewrite:
+        regex_uri: ['^/dokumentation/(.*)', '/$1']
+        headers:
+          set:
+            X-Forwarded-Prefix: /dokumentation
+            X-Forwarded-Proto: https
+    upstream:
+      type: roundrobin
+      nodes:
+        - host: '${{DOCS_HOST:=dokumentation}}'
+          port: ${{DOCS_PORT:=8080}}
+          weight: 1
+
+  # No startup dependency on Sodata: bootstrap must work before a manifest exists.
   - id: portal
     uri: /*
-    priority: -10
+    priority: -100
     plugins:
       proxy-rewrite:
         headers:
           set: {X-Forwarded-Proto: https}
     upstream:
       type: roundrobin
-      nodes: {'${{SODATA_UPSTREAM:=sodata:8080}}': 1}
+      pass_host: pass
+      nodes:
+        - host: '${{SODATA_HOST:=sodata}}'
+          port: ${{SODATA_PORT:=8080}}
+          weight: 1
+# This gateway is exposed only by an edge-TLS Route with HTTP->HTTPS redirect.
+# APISIX's NGINX template uses variables for these headers; proxy-rewrite alone
+# cannot override them. Ignore client-supplied forwarded scheme/port values.
+global_rules:
+  - id: edge-tls
+    plugins:
+      serverless-pre-function:
+        phase: rewrite
+        functions:
+          - |
+            return function(conf, ctx)
+              -- APISIX copies its cached HTTP headers to NGINX variables after plugins.
+              ctx.var.http_x_forwarded_proto = "https"
+              ctx.var.http_x_forwarded_port = "443"
+              ctx.var.var_x_forwarded_proto = "https"
+              ctx.var.var_x_forwarded_port = "443"
+            end
 #END

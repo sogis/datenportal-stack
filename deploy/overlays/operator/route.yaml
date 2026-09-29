@@ -5,7 +5,7 @@ metadata:
   annotations:
     haproxy.router.openshift.io/timeout: 300s
 spec:
-  host: datenportal.apps-crc.testing
+  host: daten.so.ch
   to: {kind: Service, name: apisix}
   port: {targetPort: http}
   tls:

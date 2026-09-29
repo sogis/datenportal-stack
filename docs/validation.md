@@ -1,4 +1,93 @@
-# Stand der Inbetriebnahme vom 19. September 2026
+# Prüfstand vom 28. September 2026
+
+## Umsetzung und tatsächlich ausgeführte Prüfungen
+
+- Gemeinsame Basis mit fünf Deployments; CRC, Betreiber, beide Bootstrap-
+  Overlays und optionale lokale Image-Variante erfolgreich mit Kustomize gerendert.
+- 15 Python-Tests erfolgreich: bestehende Konfigurations-/Manifestverträge,
+  gerenderte Deployment-Verträge, Architekturprüfung, CRC-Kontextschutz,
+  Abbruch vor Änderungen bei fehlender Architektur, Bootstrap-Schutz vor
+  Abschalten eines laufenden Portals und reguläres Update ohne Bootstrap.
+- Shellsyntax aller Stack-/CRC-Skripte und neuen Doku-Befehlsblöcke geprüft.
+- Reale APISIX-3.14.1-Konfiguration in isoliertem Docker-Container mit UID
+  `1000620000`, Gruppe 0, ohne Capabilities und mit `no-new-privileges` geprüft.
+  Redirects mit Queryparametern, Prefix-Rewrites, GET-/POST-Sperren (403) und
+  tatsächlich am Test-Upstream eintreffendes HTTPS/443 sind erfolgreich,
+  auch bei eingeschleusten widersprüchlichen Forwarded-Headern.
+- Dabei zusätzlich korrigiert: `proxy-rewrite` allein setzt das Forwarded-Scheme
+  nicht zuverlässig in APISIX' NGINX-Variablen. Die feste Edge-TLS-Regel setzt
+  auch den internen Header-Cache. Upstreams verwenden parametrische Host-/Port-
+  Werte in Listenform statt ENV-Ausdrücke als Map-Schlüssel.
+- Veröffentlichter Editor und Dokumentationsimage unter derselben beliebigen
+  UID gestartet. Editor-HTML-Basispfad `/datenblatt-editor/` und zwei lokale
+  JS/CSS-Assets, Dokumentation unter Prefix und 42 lokale Assets erfolgreich.
+- Registry-Metadaten aller fünf fixierten Digests abgefragt: amd64 überall;
+  ARM64 bei APISIX, Editor und Dokumentation, aber nicht Jenkins/Sodata.
+- Entrypoint und JCasC direkt aus den kleinen Layers des veröffentlichten
+  Jenkins `0.1.0-2` gelesen: Produktion mit AD, direktem Admin und `authenticated`,
+  ohne Pflichtvariablen für AD-Gruppen. Das ältere lokale Komponenten-Checkout
+  wurde nicht zur Produktionsvorlage gemacht und nicht verändert.
+- Betriebsbuch mit Asciidoctor 2.0.26 ohne Warnungen als HTML gerendert, interne
+  Anker und Befehlsblöcke geprüft, neues Kapitel und SVG im Browser angesehen.
+- `git diff --check` in Stack und Betriebsdoku erfolgreich.
+
+## Fixierte Registry-Referenzen
+
+Die verbindlichen Digests stehen in `deploy/base/kustomization.yaml`.
+
+| Komponente | Zugehöriger Tag beim Abgleich | Architektur |
+|---|---|---|
+| APISIX | `3.14.1-debian` | amd64 / arm64 |
+| Editor | `0.1.4` | amd64 / arm64 |
+| Dokumentation | damaliger Stand von `latest`, als Digest fixiert | amd64 / arm64 |
+| Jenkins | `0.1.0-2` | nur amd64 |
+| Sodata | `0.1.5` | nur amd64 |
+
+## Noch nicht nachgewiesen
+
+CRC ist gestoppt (OpenShift 4.22.7/ARM64). Keine neuen Ressourcen im Cluster
+angelegt und keine Publikation ausgeführt. Für vollständige Live-Abnahme fehlen
+passende veröffentlichte ARM64-Images sowie konkrete externe Test-S3-Werte.
+AD, Git-Credential und Truststore des Betreiber-Overlays sind Vorlagen und
+benötigen die tatsächlichen Betreiberzugänge.
+
+Offen: serverseitiger OpenShift-Dry-run der neuen Manifeste, alle fünf Pods im
+Cluster, Jenkins-PVC-Wiederanlauf, Seed mit den gewählten Releases,
+Erstpublikation/Testlieferung/Reload, Browser-Downloads mit CORS und Range sowie
+produktive Router-/Uploadgrenzen. Die lokalen Test-Upstreams ersetzen diese
+Kette nicht. Das veröffentlichte Dokumentationsimage enthält den bisherigen
+Release-Stand, nicht das neu verfasste Kapitel.
+
+Nach Aktualisierung von Thoth auf `fd57999` erfolgreich neu gebaut und den
+kanonischen Biblios-Aggregator mit `--use-local-working-tree` ausgeführt.
+Alle sechs Komponenten einschliesslich des lokalen Betriebsbuchs wurden gerendert.
+Der ursprüngliche CLI-Blocker ist behoben. Ein anfänglicher HTTP-504 beim
+Codeberg-Paket-Metadatenabruf wurde durch die direkte offizielle Tarball-URL
+derselben festgelegten interlis-lab-Version 0.1.10 umgangen. Keine Thoth- oder
+Aggregator-Quelldateien geändert.
+
+Jenkins-Folgeänderung: Das lokale Repository wurde von Codeberg per Fast-forward
+auf `58d9930` aktualisiert. Der dort gepflegte GitHub-Mirror-Workflow ist auf
+native amd64-/ARM64-Builds mit gemeinsamem Build-Kontext und erst nach beiden
+Tests veröffentlichten Image-Tags umgestellt. Bis zum tatsächlich erfolgreichen Veröffentlichungs-Lauf
+bleiben die hier fixierten Jenkins-/Sodata-Digests unverändert; die ARM64-
+Verfügbarkeitsaussage für diese bisherigen Releases gilt weiterhin.
+
+Jenkins-Folgeprüfung lokal: `actionlint` 1.7.12 und 16 Python-Tests erfolgreich.
+Echter Buildx-Build für `linux/arm64` als `datenportal-jenkins:multiarch-check`
+mit dem gemeinsam vorbereiteten Kontext erfolgreich. Die Offline-Tests laden
+alle fünf DuckDB-Extensions für `linux_arm64`, prüfen Parquet-/XLSX-Inhalte und
+weisen fehlende Extensions korrekt ab. Keine Images gepusht und kein GitHub-
+Workflow ausgelöst; die beiden nativen GitHub-Jobs und die Registry-Publikation
+müssen nach Übernahme der Änderungen noch laufen. Das bestehende `plugins.txt`
+meldet beim Build Sicherheitswarnungen; diese Versionspins blieben unverändert.
+
+
+# Historischer Stand vom 19. September 2026
+
+Die folgenden Ergebnisse beziehen sich auf die frühere Konfiguration und
+lokal gebaute Images; sie sind keine Abnahme des aktualisierten Registry-Stacks.
+
 
 ## Verwendete Komponenten
 

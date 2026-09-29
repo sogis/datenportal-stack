@@ -1,98 +1,101 @@
 # datenportal-stack
 
-OpenShift-Integrationsstack für Sodata, Datenblatt-Editor, Jenkins/GRETL und
-APISIX. Grundlage ist `../datenportal-dev-stack`; dessen Compose-Umgebung
-bleibt separat. Dieses Repo enthält weder Garage noch Anwendungscode.
-S3-Schreiben, Manifest und Downloads verwenden globale externe HTTPS-Adressen.
+OpenShift-Betriebsstack für Sodata, Datenblatt-Editor, Dokumentation,
+Jenkins/GRETL und APISIX. CRC und Betreiber verwenden dieselbe Kustomize-Basis.
+S3-Schreiben, Manifest und Downloads liegen an externen HTTPS-Adressen; Garage
+und Anwendungscode gehören nicht zu diesem Repository.
 
-## Inbetriebnahme
+**OpenShift betreibt fertige Images.** Es gibt keine BuildConfigs oder
+Image-Build-Pipelines. Jenkins verarbeitet und publiziert Daten; seine Jobs
+bauen keine Anwendungsimages. Lokale Build-Hilfen sind optional.
 
-1. [CRC einrichten](local/crc/README.md), starten und per `oc` anmelden.
-2. `python3 scripts/init-config.py` ausführen. Es erzeugt die ignorierten
-   Dateien `deploy/overlays/crc/config.env` und `secrets.env` (Modus 0600),
-   inklusive zufälligem Jenkins-Passwort und Reload-Token. Bestehende Dateien
-   werden niemals überschrieben.
-3. In `config.env` Endpoint, Region, Bucket, Downloadbasis und Manifest-URL
-   ergänzen; in `secrets.env` die S3-Zugangsdaten. Format: `KEY=value`, keine
-   Shell-Quotes oder Variablenexpansion. V1 verwendet Access Key/Secret Key;
-   temporäre AWS-Credentials mit Session-Token sind noch nicht angebunden.
-4. Images über `./scripts/build-images.sh` bauen. Docker, Maven, JDK 21 für
-   das Plugin und JDK 17 für GRETL werden benötigt. Die Builds bleiben in den
-   Komponenten-Repos. `JAVA_HOME` und `JAVA17_HOME` ggf. explizit setzen.
-5. Images mit `./scripts/push-images.sh` in die CRC-Registry übertragen.
-   Benötigt [ORAS](https://github.com/oras-project/oras/releases)
-   im PATH oder unter `.local/bin/oras` (hier v1.3.4), sowie Docker Desktop
-   mit containerd-Image-Store für OCI-kompatible Exporte. Der native Client
-   erreicht die CRC-Route direkt vom Mac aus. Das Skript legt einen nur zum
-   Image-Upload im Projekt berechtigten ServiceAccount an und verwendet ein
-   einstündiges Token. Als CRC-Administrator kann es das öffentliche
-   CA-Zertifikat aus `router-ca` lesen; alternativ dessen Dateipfad über
-   `CRC_REGISTRY_CA` setzen. TLS-Prüfungen bleiben aktiv.
-6. `./scripts/deploy-crc.sh` starten. Das Skript akzeptiert ausschliesslich
-   `https://api.crc.testing:6443`, erstellt das Projekt `datenportal` bei Bedarf
-   und wendet nur dessen Anwendungsressourcen an.
-7. Jenkins öffnen, Seed-Job ausführen und den externen Datenbestand prüfen.
-   Danach `./scripts/start-portal.sh` starten.
+## Registry-Start auf CRC
 
-| Anwendung | URL |
-| --- | --- |
-| Portal | `https://datenportal.apps-crc.testing/` |
-| Editor | `https://datenportal.apps-crc.testing/metadaten-editor/` |
-| Jenkins | `https://datenportal.apps-crc.testing/jenkins/` |
-| GRETL-Formular | `https://datenportal.apps-crc.testing/jenkins/gretl-datenportal/` |
+Voraussetzungen: gestartetes [CRC](local/crc/README.md), Anmeldung per `oc`,
+Python 3, curl und Docker-CLI für Registry-Metadaten (kein Docker-Daemon nötig).
+Der normale Ablauf benötigt weder Java/Maven noch Komponenten-Checkouts.
 
-Jenkins-Benutzer: `admin`; Passwort aus der lokalen `secrets.env`. Der Editor
-erhält keine S3-Schlüssel. Seine Quelle im Quellen-Dialog auf die externe
-Manifestadresse setzen; gespeicherte Browsereinstellungen bleiben erhalten.
+**Architekturgrenze:** Die fixierten Releases Jenkins `0.1.0-2` und Sodata
+`0.1.5` sind nur amd64. Ein ARM64-CRC benötigt passende extern veröffentlichte
+Images und angepasste Image-Referenzen. Der Preflight bricht andernfalls vor
+Anwendungsänderungen ab; es gibt keinen automatischen Build-Fallback.
 
-## Deployment und Datenhaltung
+1. `python3 scripts/init-config.py` erzeugt ignorierte `config.env` und
+   `secrets.env` unter `deploy/overlays/crc`, Modus 0600, ohne Überschreiben.
+2. Externe S3-Werte, Downloadbasis, Manifestadresse und Themenrepo in
+   `config.env` ergänzen; S3-Zugangsdaten in `secrets.env`. Format `KEY=value`,
+   ohne Shell-Quotes/Expansion. Jenkins-Passwort und Reload-Token sind zufällig
+   erzeugt. V1 verwendet Access/Secret Key ohne Session-Token.
+3. Für einen frischen Testbestand `./scripts/deploy-crc.sh --bootstrap`
+   ausführen. Dies startet Gateway, Jenkins, Editor und Dokumentation mit
+   gestopptem Sodata. Ein bereits laufendes Portal verhindert den Bootstrap.
+4. In Jenkins anmelden, Seed prüfen, danach den Publikationsbestand nach der
+   [Betriebsanleitung](https://codeberg.org/edigonzales/datenportal-dokumentation-betrieb)
+   kontrolliert initialisieren. Ein Seed allein publiziert noch keine Daten.
+5. `./scripts/start-portal.sh` prüft Manifest und referenzierte Artefakte und
+   startet Sodata. `./scripts/smoke-test.sh` prüft Zugänge und Sperren.
+6. Bei vorhandenem Bestand und für spätere Updates `./scripts/deploy-crc.sh`
+   ohne Bootstrap verwenden. Sodata bleibt auf einer Instanz; vor dem Apply
+   werden Manifest und Imagearchitektur geprüft.
 
-`local/crc` verwaltet nur die lokale Plattform. `deploy/base` beschreibt die
-Anwendungen; `deploy/overlays/crc` ergänzt Hostname, Namespace, Images und
-externe Parameter. AIO-Overlays werden erst mit dessen konkreten Vorgaben
-ergänzt. Der CRC-Jenkins nutzt lokale Anmeldung, kein Active Directory.
+Alle CRC-Skripte akzeptieren ausschliesslich `https://api.crc.testing:6443`.
+CRC benötigt keine AIO-/AD-Anbindung, aber Zugriff auf den externen Testbucket.
+Jenkins verwendet das konfigurierte Remote-Themenrepo, nicht lokale Änderungen.
 
-APISIX läuft standalone ohne etcd und ohne öffentliche Admin-API. Der
-OpenShift-Router terminiert TLS. Editor-Prefix wird entfernt und über
-`X-Forwarded-Prefix` übermittelt, Jenkins läuft selbst unter `/jenkins`.
-Portal-Admin- und Actuator-Pfade werden am Gateway gesperrt. Jenkins ruft den
-Reload intern mit Token auf. Die Container fordern keine privilegierten SCCs
-und keine feste UID an; beschreibbare Laufzeitdaten liegen in Volumes.
+| Anwendung | Pfad unter `https://datenportal.apps-crc.testing` |
+|---|---|
+| Portal | `/` |
+| Datenblatt-Editor | `/datenblatt-editor/` |
+| Dokumentation | `/dokumentation/` |
+| Anlieferung | `/anlieferung` → `/jenkins/gretl-datenportal/` |
+| Jenkins | `/jenkins/` |
 
-Jenkins hat eine einzelne Instanz und ein 10-GiB-PVC; normale Updates verwenden
-Recreate. CRC-Stopp erhält es. Sodata lädt seine Daten aus S3 und erhält kein
-lokales Fixture-Profil. Das Deployment startet Sodata zunächst mit null
-Replikaten, auch bei erneutem `deploy-crc.sh`; anschliessend immer
-`start-portal.sh` aufrufen. Secrets als ENV werden erst bei Pod-Neustart neu
-eingelesen: nach Secret-Änderungen Jenkins und ein bereits laufendes Sodata
-gezielt mit `oc -n datenportal rollout restart deployment/NAME` neu starten.
-Dasselbe gilt nach erneutem Build/Push unter dem lokalen Image-Tag `crc`;
-`imagePullPolicy: Always` verhindert die Wiederverwendung eines alten Tags
-aus dem Node-Cache. Für spätere AIO-Overlays feste Release-Tags/Digests verwenden.
+Jenkins-Benutzer `admin`, Passwort aus `secrets.env`. Der Editor importiert
+lokale XTF-Dateien und exportiert die Bearbeitung; Publikation erfolgt über
+Jenkins. Der Browser-Quellenimport ist derzeit deaktiviert.
+`/metadaten-editor` und Unterpfade leiten mit 308 auf den neuen Editorpfad um.
+Redirects erhalten Queryparameter. Editor und Dokumentation erhalten den
+entfernten Prefix als `X-Forwarded-Prefix`; Jenkins behält `/jenkins`.
 
-Jenkins verwendet das öffentliche Themenrepo per Git und deaktiviert
-Git-Rückschreiben. Reguläre Jobs publizieren in den konfigurierten S3-Test-Bucket.
-Noch keine produktive Identitätsverwaltung oder AIO-Betriebsfreigabe.
+## Wiederverwendbare YAML-Dateien
 
-## Externes S3 und erster Datenbestand
+- `deploy/base`: fünf Deployments und Services, Jenkins-PVC, Gateway-Konfiguration,
+  zentral fixierte Registry-Digests. Keine lokale Anmeldung.
+- `deploy/overlays/crc`: CRC-Route, lokale Anmeldung und Testparameter.
+- `deploy/overlays/operator`: [Betreiber-Vorlage](deploy/overlays/operator/README.md)
+  mit AD, externen Secrets, Git-Credential, StorageClass und produktiver Route.
+- `crc-bootstrap` / `operator-bootstrap`: expliziter Erstaufbau mit Sodata=0.
+- `crc-local`: optionale Entwicklung mit in die CRC-Registry übertragenen Images.
 
-Bucket-Provisionierung bleibt ausserhalb dieses Repos. AWS-Default:
-`S3_ACL=bucket-owner-full-control`, da die aktuelle GRETL-Konfiguration bei
-leerem Wert `private` setzt. Bei AWS Bucket-owner-enforced dürfen Uploads
-diese ACL verwenden; öffentliches Lesen erfolgt über eine passende Bucket-
-oder CDN-Policy, nicht durch `public-read`.
+APISIX läuft standalone ohne etcd und öffentliche Admin-API. Der Router terminiert
+TLS; Gateway setzt für diese Edge-TLS-Topologie Scheme/Port auf HTTPS/443.
+Öffentlich liefern `/admin`, `/actuator`, `/apisix/admin` und deren Unterpfade
+für alle Methoden 403. Reload bleibt intern und tokenpflichtig.
+Uploads: 256 MiB inklusive Multipart; Jenkins connect/send/read 10/300/300s,
+Router-Timeout 300s. Keine feste Container-UID oder privilegierte SCC nötig;
+beschreibbare Laufzeitdaten liegen in Volumes. Die lokale Gateway-Probe beweist
+keine Bereitschaft der Backends.
 
-Manifest und referenzierte Artefakte müssen ohne Zugangsdaten über HTTPS
-lesbar sein. Browser benötigen CORS für den Portal-/Editor-Origin:
-`GET`, `HEAD`, Header für Range-Requests und exponierte Header `ETag`,
-`Content-Length`, `Content-Range`, `Accept-Ranges`. CORS gewährt selbst keine
-Leseberechtigung. Kurze Cache-Laufzeit für `current.json` vorsehen.
+Jenkins hat ein 10-GiB-PVC und verwendet `Recreate`. CRC-Stopp erhält die Daten.
+ConfigMap-Änderungen erzeugen neue Pods durch Kustomize-Namenshashes.
+Bei Secret-Änderungen betroffene Deployments gezielt mit
+`oc -n datenportal rollout restart deployment/NAME` neu starten.
+Das Betreiber-Overlay ist eine Vorlage, keine produktive Betriebsfreigabe.
 
-Ein fehlendes `current.json` ist noch kein publizierter Bestand. Seeder allein
-initialisiert ihn nicht. Für den erstmaligen administrativen Aufbau Jenkins
-in Quiet Down versetzen, laufende Builds abwarten, einen frischen Git-Checkout
-des konfigurierten Branches unter `/var/jenkins_home` erstellen und dort den
-kanonischen Themenrepo-Task ausführen:
+## Externes S3 und Erstpublikation
+
+Bucket-Provisionierung bleibt ausserhalb des Repos. AWS-Default:
+`S3_ACL=bucket-owner-full-control`; GRETL setzt bei leerem Wert `private`.
+Öffentliches Lesen über Bucket-/CDN-Policy separat bereitstellen.
+Manifest und Artefakte müssen ohne Zugangsdaten über HTTPS erreichbar sein.
+CORS für Portal-Origin, GET/HEAD/OPTIONS, Range-Anfragen und exponierte Header
+`ETag`, `Content-Length`, `Content-Type`, `Content-Range`, `Accept-Ranges`
+abnehmen. `current.json` darf nicht veraltet aus einem Cache kommen.
+
+Nur ein nachweislich uninitialisierter Testbestand darf initialisiert werden:
+404 prüfen, 403 ist kein Beweis eines leeren Buckets. Jenkins in Quiet Down
+versetzen, laufende Jobs abwarten, eine frische beschreibbare Kopie des
+Seeder-Checkouts unter `/var/jenkins_home` erstellen. Dort ausführen:
 
 ```bash
 ./shared/bin/gradlew-java17.sh --no-daemon \
@@ -100,28 +103,43 @@ kanonischen Themenrepo-Task ausführen:
   -Ps3Publish=true -PgitWriteBack=false -PreloadPortal=false
 ```
 
-Dieser Schritt schreibt in S3 und ist bewusst nicht Teil von `deploy-crc.sh`.
-Er ist nur für einen nachweislich uninitialisierten Test-Bucket bestimmt:
-HTTP 403 ist kein Beleg für einen fehlenden Manifeststand. Vorhandene oder
-beschädigte Manifeste nicht löschen oder neu initialisieren. Details und
-Datenverträge bleiben im Themenrepo. Danach Quiet Down beenden.
+Bericht und Manifest prüfen, Quiet Down beenden. Bestehende/beschädigte
+Manifeste nicht löschen oder neu initialisieren. Das Deployment publiziert
+keine Daten. Vollständige Befehle stehen im CRC-Kapitel der Betriebsdoku.
+
+## Optionale lokale Entwicklung
+
+`build-images.sh` baut auf dem Arbeitsplatz aus den Komponenten-Repositories
+(Docker, Maven, JDK 21 und JDK 17); `push-images.sh` lädt diese Images mit ORAS
+in die CRC-Registry. Die Rolle `system:image-builder` dient nur dem Upload.
+Das Betreiberverfahren benötigt beide Skripte nicht. ORAS muss im PATH oder
+unter `.local/bin/oras` liegen; alternativ `ORAS` setzen. Docker Desktop muss
+OCI-kompatible Exporte unterstützen. `CRC_REGISTRY_CA` kann auf das öffentliche
+CRC-CA-Zertifikat zeigen; andernfalls liest der Upload als CRC-Administrator
+`router-ca`. TLS-Prüfungen bleiben aktiv. Der Upload verwendet einen eigenen
+ServiceAccount mit kurzlebigem Token.
+
+Nach bewusstem Build/Push kann `deploy/overlays/crc-local` manuell angewendet
+werden, nachdem die CRC-Konfiguration und Secrets bereitstehen. Dieses Overlay
+enthält eine laufende Sodata-Instanz und setzt einen gültigen Bestand voraus.
+Vor dem Apply in einer Bash den CRC-Kontext mit `source scripts/common.sh` prüfen. Es ist kein
+Fallback für den Registry-Start. Unter dem beweglichen Tag `crc` nach erneutem
+Push Jenkins und Sodata neu starten; `imagePullPolicy: Always` ist gesetzt.
+APISIX, Editor und Dokumentation bleiben veröffentlichte Images.
 
 ## Prüfung
 
 ```bash
-python3 -m unittest discover -s tests
-kubectl kustomize deploy/overlays/crc >/dev/null
-oc -n datenportal get pods,pvc,route
-oc -n datenportal logs deployment/jenkins
-./scripts/smoke-test.sh
+python3 -m venv .local/test-venv
+.local/test-venv/bin/pip install -r tests/requirements.txt
+.local/test-venv/bin/python -m unittest discover -s tests
+python3 tests/integration_gateway.py
+python3 tests/integration_assets.py
 ```
 
-Live-Abnahme: alle Pods bereit, Editor inklusive Assets und Quellenabruf,
-Jenkins-Login/Seed/Lieferformular, externe Publikation und anschliessender
-Portal-Reload, Downloads und Browser-CORS. CRC neu starten und Erhalt des
-Jenkins-PVC prüfen. Ein erfolgreicher lokaler Render ersetzt diese Tests nicht.
-
-Der Smoke-Test erwartet eine vertrauenswürdige CRC-Route; bei lokalem
-CA-Zertifikat `CURL_CA_BUNDLE=/pfad/zur/crc-ca.pem` setzen. Er prüft auch die
-CORS-Antwort des externen Manifests, führt aber keine Publikation aus.
-Der dokumentierte Zwischenstand steht unter [Validierung](docs/validation.md).
+Der isolierte Docker-Lauf prüft echte APISIX-Konfiguration gegen einen
+instrumentierten Test-Upstream, inklusive beliebiger UID. Er publiziert keine
+Daten. Er benötigt Docker Desktop (`host.docker.internal`). Cluster-Smoke-Test:
+`./scripts/smoke-test.sh`; CRC-CA bei Bedarf mit `CURL_CA_BUNDLE` bereitstellen.
+Browser, Lieferung, Reload, Downloads/Range und PVC-Wiederanlauf separat
+abnehmen. Tatsächliche Ergebnisse und Grenzen: [Validierung](docs/validation.md).

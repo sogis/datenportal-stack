@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  template:
+    spec:
+      containers:
+        - name: jenkins
+          env:
+            - {name: JENKINS_RUNTIME_MODE, value: production}
+            - name: JENKINS_ADMIN_ADDRESS
+              valueFrom: {configMapKeyRef: {name: stack-config, key: JENKINS_ADMIN_ADDRESS}}
+            - name: JENKINS_ADMIN_USER
+              valueFrom: {configMapKeyRef: {name: stack-config, key: JENKINS_ADMIN_USER}}
+            - name: AD_DOMAIN
+              valueFrom: {configMapKeyRef: {name: stack-config, key: AD_DOMAIN}}
+            - name: AD_SERVERS
+              valueFrom: {configMapKeyRef: {name: stack-config, key: AD_SERVERS}}
+            - name: AD_BIND_NAME
+              valueFrom: {configMapKeyRef: {name: stack-config, key: AD_BIND_NAME}}
+            - name: THEMEN_REPO_CREDENTIALS_ID
+              valueFrom: {configMapKeyRef: {name: stack-config, key: THEMEN_REPO_CREDENTIALS_ID}}
+            - name: AD_BIND_PASSWORD
+              valueFrom: {secretKeyRef: {name: jenkins-ad, key: bind-password}}
+            - name: AD_TRUSTSTORE_PASSWORD
+              valueFrom: {secretKeyRef: {name: jenkins-ad, key: truststore-password}}
+            - name: THEMEN_REPO_GIT_USERNAME
+              valueFrom: {secretKeyRef: {name: themenrepo-git, key: username}}
+            - name: THEMEN_REPO_GIT_TOKEN
+              valueFrom: {secretKeyRef: {name: themenrepo-git, key: token}}
+            - name: JENKINS_JAVA_OPTS
+              value: '-Djenkins.install.runSetupWizard=false -Xmx1536m -Djavax.net.ssl.trustStore=/etc/jenkins/trust/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(AD_TRUSTSTORE_PASSWORD)'
+          volumeMounts:
+            - {name: ad-trust, mountPath: /etc/jenkins/trust, readOnly: true}
+      volumes:
+        - name: ad-trust
+          secret: {secretName: jenkins-ad-truststore}

@@ -1,0 +1,69 @@
+jenkins:
+  systemMessage: "Datenportal Jenkins"
+  numExecutors: 2
+  mode: NORMAL
+  scmCheckoutRetryCount: 1
+
+  securityRealm:
+    activeDirectory:
+      domains:
+        - name: "${AD_DOMAIN}"
+          servers: "${AD_SERVERS}"
+      bindName: "${AD_BIND_NAME}"
+      bindPassword: "${AD_BIND_PASSWORD}"
+      groupLookupStrategy: "RECURSIVE"
+      removeIrrelevantGroups: false
+      customDomain: true
+      startTls: true
+      requireTLS: true
+
+  authorizationStrategy:
+    projectMatrix:
+      entries:
+        - user:
+            name: "${JENKINS_ADMIN_USER}"
+            permissions:
+              - "Overall/Administer"
+        - group:
+            name: "authenticated"
+            permissions:
+              - "Overall/Read"
+
+unclassified:
+  lockableResourcesManager:
+    declaredResources:
+      - name: "datenportal-topic-repository"
+  location:
+    url: "${JENKINS_URL}"
+    adminAddress: "${JENKINS_ADMIN_ADDRESS}"
+  gretlDatenportalJobs:
+    displayName: "GRETL Datenportal Jobs"
+    urlName: "gretl-datenportal"
+    topicRepositoryMode: "managed-git"
+    topicRepositoryUrl: "${THEMEN_REPO_URL}"
+    topicRepositoryBranch: "${THEMEN_REPO_BRANCH}"
+    topicRepositoryPath: ""
+    topicRepositoryCredentialsId: "${THEMEN_REPO_CREDENTIALS_ID:-}"
+    topicRepositoryWriteBackEnabled: "${THEMEN_REPO_WRITE_BACK_ENABLED:-false}"
+    topicRepositoryCommitterName: "${THEMEN_REPO_COMMITTER_NAME:-}"
+    topicRepositoryCommitterEmail: "${THEMEN_REPO_COMMITTER_EMAIL:-}"
+    seedJobAutoCreate: true
+    seedJobCron: "H/15 * * * *"
+    seedJobBuildsToKeep: 20
+    seedJobOperatorsTeam: "gretl-datenportal-seed-operators"
+
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              id: "${THEMEN_REPO_CREDENTIALS_ID}"
+              description: "HTTPS-Zugang zum Themenrepo"
+              username: "${THEMEN_REPO_GIT_USERNAME}"
+              password: "${THEMEN_REPO_GIT_TOKEN}"

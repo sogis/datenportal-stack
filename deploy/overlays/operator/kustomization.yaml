@@ -1,13 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: datenportal
+namespace: datenportal-production
 resources:
   - ../../base
   - route.yaml
 configMapGenerator:
   - name: stack-config
     envs: [config.env]
-  - name: jenkins-casc
-    files: [jenkins.yaml]
 patches:
   - path: jenkins-patch.yaml
+  - path: storage-patch.yaml
+# Freigegebene Images bei Bedarf hier mit images: überschreiben.
+# Ressourcenlimits können als zusätzliche Deployment-Patches ergänzt werden.

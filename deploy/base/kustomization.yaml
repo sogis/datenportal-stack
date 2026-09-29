@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - sodata.yaml
   - editor.yaml
+  - dokumentation.yaml
   - jenkins.yaml
   - apisix.yaml
 configMapGenerator:
@@ -10,6 +11,19 @@ configMapGenerator:
     files:
       - config.yaml=apisix/config.yaml
       - apisix.yaml=apisix/apisix.yaml
-  - name: jenkins-casc
-    files:
-      - jenkins.yaml=jenkins/jenkins.yaml
+images:
+  - name: sogis/datenportal-dokumentation
+    newName: sogis/datenportal-dokumentation
+    digest: sha256:57b1df7678ae1bcb551494887fce8cf6edaaa71a3631ad82756ddcc70ca4c849
+  - name: sogis/datenportal-jenkins
+    newName: sogis/datenportal-jenkins
+    digest: sha256:59332449e6a08b9f743dd61e396372ba583ad2cb436ec6334c35b01ee9419149
+  - name: sogis/datenportal-sodata
+    newName: sogis/datenportal-sodata
+    digest: sha256:81a3dd5873f233837ac8bea6608af3edd0262c1b8d94863bca22e8b95faa6d60
+  - name: sogis/datenportal-datenblatt-editor
+    newName: sogis/datenportal-datenblatt-editor
+    digest: sha256:8336e402778423fe8a95e53f50268e81586531e6933ec24468263bd51fa99bdb
+  - name: apache/apisix
+    newName: apache/apisix
+    digest: sha256:c228717165ecf4c0055818c9e2d9843f7b303f17a6df9e5fbaf8eafeb5007ae4

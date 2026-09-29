@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  template:
+    spec:
+      containers:
+        - name: jenkins
+          env:
+            - {name: JENKINS_RUNTIME_MODE, value: dev}
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: stack-secrets, key: JENKINS_ADMIN_PASSWORD}}
+      volumes:
+        - name: casc
+          secret: null
+          configMap: {name: jenkins-casc}
