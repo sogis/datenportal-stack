@@ -77,4 +77,4 @@ def check(image, prefix):
 
 if __name__ == '__main__':
     check('sogis/datenportal-datenblatt-editor@sha256:8336e402778423fe8a95e53f50268e81586531e6933ec24468263bd51fa99bdb', '/datenblatt-editor')
-    check('sogis/datenportal-dokumentation@sha256:57b1df7678ae1bcb551494887fce8cf6edaaa71a3631ad82756ddcc70ca4c849', '/dokumentation')
+    check('sogis/datenportal-dokumentation@sha256:21bfc655e9d51877ba56402f69dc8fcfd21869ed252eb0c0ad816593b6ee6f50', '/dokumentation')

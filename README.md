@@ -15,10 +15,12 @@ Voraussetzungen: gestartetes [CRC](local/crc/README.md), Anmeldung per `oc`,
 Python 3, curl und Docker-CLI für Registry-Metadaten (kein Docker-Daemon nötig).
 Der normale Ablauf benötigt weder Java/Maven noch Komponenten-Checkouts.
 
-**Architekturgrenze:** Die fixierten Releases Jenkins `0.1.0-2` und Sodata
-`0.1.5` sind nur amd64. Ein ARM64-CRC benötigt passende extern veröffentlichte
-Images und angepasste Image-Referenzen. Der Preflight bricht andernfalls vor
-Anwendungsänderungen ab; es gibt keinen automatischen Build-Fallback.
+Die gemeinsamen Images entsprechen Kapitel 2 der Betriebsdoku: Jenkins
+`0.1.0-3`, natives Sodata `0.1.11`, Dokumentation `0.1.18`, Editor `0.1.4` und
+APISIX `3.14.1-debian`. Alle fünf sind für AMD64 und ARM64 veröffentlicht;
+`deploy/base/kustomization.yaml` fixiert ihre Multiarch-Digests. Der Preflight
+prüft die tatsächliche Clusterarchitektur vor Anwendungsänderungen und bricht
+bei fehlender Unterstützung ab; es gibt keinen automatischen Build-Fallback.
 
 1. `python3 scripts/init-config.py` erzeugt ignorierte `config.env` und
    `secrets.env` unter `deploy/overlays/crc`, Modus 0600, ohne Überschreiben.
@@ -30,7 +32,7 @@ Anwendungsänderungen ab; es gibt keinen automatischen Build-Fallback.
    ausführen. Dies startet Gateway, Jenkins, Editor und Dokumentation mit
    gestopptem Sodata. Ein bereits laufendes Portal verhindert den Bootstrap.
 4. In Jenkins anmelden, Seed prüfen, danach den Publikationsbestand nach der
-   [Betriebsanleitung](https://codeberg.org/edigonzales/datenportal-dokumentation-betrieb)
+   [Betriebsanleitung](https://github.com/sogis/datenportal-dokumentation-betrieb)
    kontrolliert initialisieren. Ein Seed allein publiziert noch keine Daten.
 5. `./scripts/start-portal.sh` prüft Manifest und referenzierte Artefakte und
    startet Sodata. `./scripts/smoke-test.sh` prüft Zugänge und Sperren.
@@ -40,7 +42,16 @@ Anwendungsänderungen ab; es gibt keinen automatischen Build-Fallback.
 
 Alle CRC-Skripte akzeptieren ausschliesslich `https://api.crc.testing:6443`.
 CRC benötigt keine AIO-/AD-Anbindung, aber Zugriff auf den externen Testbucket.
-Jenkins verwendet das konfigurierte Remote-Themenrepo, nicht lokale Änderungen.
+Jenkins verwendet das konfigurierte Remote-Themenrepo, standardmässig
+`https://github.com/sogis/datenportal-themenrepo.git`, Branch `main`.
+Nur dieser Stack muss lokal geklont sein. Beispieldaten und Datenblatt werden
+nach Kapitel 3 der Betriebsdoku einzeln heruntergeladen; weitere lokale
+Datenportal-Repositories werden nicht vorausgesetzt.
+
+Bei vorhandener `config.env` die Themenrepo-URL bewusst abgleichen; `init-config.py`
+überschreibt keine bestehenden Dateien. Secrets und persistenten Bestand erhalten.
+Der Imagewechsel erfolgt über die versionierten Manifeste und einen regulären
+Deployment-Aufruf, ohne erneuten Bootstrap.
 
 | Anwendung | Pfad unter `https://datenportal.apps-crc.testing` |
 |---|---|
@@ -50,7 +61,13 @@ Jenkins verwendet das konfigurierte Remote-Themenrepo, nicht lokale Änderungen.
 | Anlieferung | `/anlieferung` → `/jenkins/gretl-datenportal/` |
 | Jenkins | `/jenkins/` |
 
-Jenkins-Benutzer `admin`, Passwort aus `secrets.env`. Der Editor importiert
+Jenkins-Benutzer `admin`, Passwort aus `secrets.env` (`JENKINS_ADMIN_PASSWORD`).
+CRC setzt `JENKINS_RUNTIME_MODE=dev` und bindet die eigene JCasC über
+`CASC_JENKINS_CONFIG` ein; der Modus allein wählt keine Konfigurationsdatei.
+Das öffentliche Themenrepo verwendet eine leere Git-Credentials-ID und kein
+Git-Rückschreiben. S3-Schlüssel werden aus `stack-secrets` als Gradle-Variablen
+übergeben, nicht als Jenkins-Git-Credentials. Jenkins und Sodata erhalten den
+gleichen `PORTAL_RELOAD_TOKEN` aus diesem Secret. Der Editor importiert
 lokale XTF-Dateien und exportiert die Bearbeitung; Publikation erfolgt über
 Jenkins. Der Browser-Quellenimport ist derzeit deaktiviert.
 `/metadaten-editor` und Unterpfade leiten mit 308 auf den neuen Editorpfad um.
@@ -68,7 +85,9 @@ entfernten Prefix als `X-Forwarded-Prefix`; Jenkins behält `/jenkins`.
 - `crc-local`: optionale Entwicklung mit in die CRC-Registry übertragenen Images.
 
 APISIX läuft standalone ohne etcd und öffentliche Admin-API. Der Router terminiert
-TLS; Gateway setzt für diese Edge-TLS-Topologie Scheme/Port auf HTTPS/443.
+TLS; APISIX deaktiviert Kubernetes-Service-Links, damit automatisch gesetzte
+`JENKINS_PORT`-/`SODATA_PORT`-Variablen seine numerischen Upstream-Ports nicht
+überschreiben. Gateway setzt für diese Edge-TLS-Topologie Scheme/Port auf HTTPS/443.
 Öffentlich liefern `/admin`, `/actuator`, `/apisix/admin` und deren Unterpfade
 für alle Methoden 403. Reload bleibt intern und tokenpflichtig.
 Uploads: 256 MiB inklusive Multipart; Jenkins connect/send/read 10/300/300s,
@@ -93,14 +112,20 @@ CORS für Portal-Origin, GET/HEAD/OPTIONS, Range-Anfragen und exponierte Header
 abnehmen. `current.json` darf nicht veraltet aus einem Cache kommen.
 
 Nur ein nachweislich uninitialisierter Testbestand darf initialisiert werden:
-404 prüfen, 403 ist kein Beweis eines leeren Buckets. Jenkins in Quiet Down
+HTTP 404 an der öffentlichen Manifestadresse prüfen; GRETL verlangt diesen
+Status ebenfalls. AWS S3 kann ohne anonymes ListBucket für fehlende Objekte
+403 liefern. Ein authentifizierter HEAD mit 404 ist dann ein Nachweis der
+Abwesenheit, genügt aber nicht für den aktuellen GRETL-Ablauf. Lesedienst und
+Freigaben mit dem Speicherbetrieb abstimmen; anonymes ListBucket macht auch
+Objektnamen öffentlich auflistbar. Öffentliche Lesbarkeit/CORS separat prüfen.
+Jenkins in Quiet Down
 versetzen, laufende Jobs abwarten, eine frische beschreibbare Kopie des
 Seeder-Checkouts unter `/var/jenkins_home` erstellen. Dort ausführen:
 
 ```bash
 ./shared/bin/gradlew-java17.sh --no-daemon \
   -I "$PWD/shared/gradle/init.gradle" initializePublication \
-  -Ps3Publish=true -PgitWriteBack=false -PreloadPortal=false
+  -Ps3Publish=true -PgitWriteBack=false -PreloadPortal=false </dev/null
 ```
 
 Bericht und Manifest prüfen, Quiet Down beenden. Bestehende/beschädigte
@@ -135,11 +160,15 @@ python3 -m venv .local/test-venv
 .local/test-venv/bin/python -m unittest discover -s tests
 python3 tests/integration_gateway.py
 python3 tests/integration_assets.py
+python3 tests/integration_jenkins.py
 ```
 
 Der isolierte Docker-Lauf prüft echte APISIX-Konfiguration gegen einen
 instrumentierten Test-Upstream, inklusive beliebiger UID. Er publiziert keine
-Daten. Er benötigt Docker Desktop (`host.docker.internal`). Cluster-Smoke-Test:
+Daten. Er benötigt Docker Desktop (`host.docker.internal`). Der Jenkins-Test verwendet ausschliesslich das veröffentlichte Image und
+Stack-Dateien: CRC-Anmeldung, Remote-Seed und Betreiber-JCasC mit synthetischen
+Credentials. Er prüft keine AD-Anmeldung und schreibt nicht nach S3 oder Git.
+Cluster-Smoke-Test:
 `./scripts/smoke-test.sh`; CRC-CA bei Bedarf mit `CURL_CA_BUNDLE` bereitstellen.
 Browser, Lieferung, Reload, Downloads/Range und PVC-Wiederanlauf separat
 abnehmen. Tatsächliche Ergebnisse und Grenzen: [Validierung](docs/validation.md).

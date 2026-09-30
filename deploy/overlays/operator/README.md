@@ -3,7 +3,7 @@
 Diese Vorlage verwendet dieselben Anwendungsmanifeste wie CRC. Sie erstellt
 keinen Cluster, keinen Namespace, keine Secrets und keine Build-Ressourcen.
 Sie ist noch keine AIO-Betriebsfreigabe. Ziel ist ein Cluster mit passenden
-Registry-Images; die derzeit fixierten Jenkins-/Sodata-Releases sind amd64.
+Registry-Images; die fixierten Releases unterstützen AMD64 und ARM64.
 
 ## Übergabe und Anpassung
 
@@ -21,10 +21,10 @@ Registry-Images; die derzeit fixierten Jenkins-/Sodata-Releases sind amd64.
    verwenden dieselben Image-Referenzen. Registry-Pull-Zugang bei Bedarf am
    ServiceAccount oder mit `imagePullSecrets` bereitstellen.
 5. `jenkins.yaml.example` nach `jenkins.yaml` kopieren (ignoriert). Die Vorlage
-   passt zum veröffentlichten Jenkins `0.1.0-2`, dessen Entrypoint und JCasC
+   passt zum veröffentlichten Jenkins `0.1.0-3`, dessen Entrypoint und JCasC
    geprüft wurden: AD mit StartTLS, direkter Admin aus `JENKINS_ADMIN_USER`,
    `authenticated` erhält nur `Overall/Read`. Keine AD-Gruppenvariablen.
-   Das alte lokale Jenkins-Checkout ist hierfür keine Referenz.
+   Massgeblich ist das veröffentlichte Image; weitere lokale Checkouts sind nicht nötig.
 
 Die Plattform stellt vor dem Deployment diese Secrets im Zielnamespace bereit:
 
@@ -36,9 +36,30 @@ Die Plattform stellt vor dem Deployment diese Secrets im Zielnamespace bereit:
 | `themenrepo-git` | `username`, `token`: technischer HTTPS-Git-Zugang |
 | `jenkins-production-jcasc` | `jenkins.yaml`: vollständige Datei aus der angepassten Vorlage |
 
-Die Vorlage enthält bewusst die Anbindung eines privaten Themenrepos. Für ein
-öffentliches Repo sind Git-Secret und Credentials-Block optional, müssen dann
-aber gemeinsam aus Patch/JCasC entfernt und die Credentials-ID geleert werden.
+Die Vorlage enthält bewusst die Anbindung eines privaten Themenrepos.
+`themenrepo-git.username` und `.token` werden als `THEMEN_REPO_GIT_USERNAME` und
+`THEMEN_REPO_GIT_TOKEN` in Jenkins bereitgestellt. Die JCasC erzeugt damit ein
+globales Credential vom Typ **Username with password**; das Token steht im
+Passwortfeld. `THEMEN_REPO_CREDENTIALS_ID` in `config.env` wird sowohl als
+Credential-ID als auch für `topicRepositoryCredentialsId` verwendet. Die Variable
+allein erzeugt kein Credential; ein Credential vom Typ **Secret text** genügt nicht.
+
+Für ein öffentliches Repo ohne Git-Authentifizierung alle folgenden Anpassungen
+vor dem Deployment zusammen ausführen:
+
+- `THEMEN_REPO_CREDENTIALS_ID=` in `config.env` leer setzen.
+- Im `jenkins-patch.yaml` die beiden ENV-Einträge `THEMEN_REPO_GIT_USERNAME` und
+  `THEMEN_REPO_GIT_TOKEN` einschliesslich ihrer `secretKeyRef` entfernen.
+- In der kopierten `jenkins.yaml` den vollständigen `credentials`-Block entfernen.
+  `topicRepositoryCredentialsId` bleibt erhalten und löst zur leeren ID auf.
+- Das Secret `themenrepo-git` wird dann nicht benötigt; andere Secrets bleiben nötig.
+
+Das Standard-Themenrepo ist `https://github.com/sogis/datenportal-themenrepo.git`.
+Git-Rückschreiben bleibt deaktiviert. S3-Access-/Secret-Key und Reload-Token
+kommen unabhängig von Git aus `stack-secrets`: S3 wird über die entsprechenden
+`ORG_GRADLE_PROJECT_*`-Variablen an GRETL übergeben, der Reload-Token an Jenkins
+und Sodata. Sie sind keine Git-Credentials.
+
 Secret-Werte nicht in YAML/Logs oder Shellhistorie übernehmen. Beispiel für die
 JCasC-Übergabe ohne Ausgabe der Datei (bereits vorhandene Secrets über die
 betriebliche Secret-Verwaltung aktualisieren):

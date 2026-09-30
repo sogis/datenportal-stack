@@ -42,6 +42,16 @@ class ConfigTest(unittest.TestCase):
                 module.validate()
             self.assertNotIn('secret', str(error.exception))
 
+    def test_rejects_git_credentials_in_urls(self):
+        for url in ('https://user:secret@example.org/themes.git',
+                    'https://example.org/themes.git?token=secret',
+                    'file:///workspace/themes', 'http://example.org/themes.git'):
+            self.config['THEMEN_REPO_URL'] = url
+            self.write()
+            with self.assertRaises(ValueError) as error:
+                module.validate()
+            self.assertNotIn('secret', str(error.exception))
+
     def test_rejects_missing_credentials(self):
         self.write()
         (module.OVERLAY / 'secrets.env').write_text('S3_ACCESS_KEY=\n')

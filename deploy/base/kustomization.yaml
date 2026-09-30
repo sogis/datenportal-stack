@@ -14,16 +14,21 @@ configMapGenerator:
 images:
   - name: sogis/datenportal-dokumentation
     newName: sogis/datenportal-dokumentation
-    digest: sha256:57b1df7678ae1bcb551494887fce8cf6edaaa71a3631ad82756ddcc70ca4c849
+    # 0.1.18: linux/amd64 und linux/arm64
+    digest: sha256:21bfc655e9d51877ba56402f69dc8fcfd21869ed252eb0c0ad816593b6ee6f50
   - name: sogis/datenportal-jenkins
     newName: sogis/datenportal-jenkins
-    digest: sha256:59332449e6a08b9f743dd61e396372ba583ad2cb436ec6334c35b01ee9419149
+    # 0.1.0-3: linux/amd64 und linux/arm64
+    digest: sha256:ecb915bf07fc87b47c8abf37d5e18a89be0c49f79be59a38c1ea5a47c7e75b56
   - name: sogis/datenportal-sodata
     newName: sogis/datenportal-sodata
-    digest: sha256:81a3dd5873f233837ac8bea6608af3edd0262c1b8d94863bca22e8b95faa6d60
+    # 0.1.11: linux/amd64 und linux/arm64
+    digest: sha256:f2079e8d711bf4b04bce4e773b7239e4ab4975393ece5be931b032991e6f2a89
   - name: sogis/datenportal-datenblatt-editor
     newName: sogis/datenportal-datenblatt-editor
+    # 0.1.4: linux/amd64 und linux/arm64
     digest: sha256:8336e402778423fe8a95e53f50268e81586531e6933ec24468263bd51fa99bdb
   - name: apache/apisix
     newName: apache/apisix
+    # 3.14.1-debian: linux/amd64 und linux/arm64
     digest: sha256:c228717165ecf4c0055818c9e2d9843f7b303f17a6df9e5fbaf8eafeb5007ae4

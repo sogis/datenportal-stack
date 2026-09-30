@@ -27,6 +27,7 @@ unclassified:
     topicRepositoryUrl: '${THEMEN_REPO_URL}'
     topicRepositoryBranch: '${THEMEN_REPO_BRANCH}'
     topicRepositoryPath: ''
+    topicRepositoryCredentialsId: ''
     topicRepositoryWriteBackEnabled: false
     seedJobAutoCreate: true
     seedJobCron: 'H/15 * * * *'

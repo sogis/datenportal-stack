@@ -10,6 +10,9 @@ spec:
     metadata:
       labels: {app: apisix}
     spec:
+      # Kubernetes service links would set JENKINS_PORT/SODATA_PORT=tcp://...,
+      # colliding with APISIX's numeric upstream port variables.
+      enableServiceLinks: false
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true

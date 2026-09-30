@@ -63,6 +63,7 @@ credentials:
     domainCredentials:
       - credentials:
           - usernamePassword:
+              scope: GLOBAL
               id: "${THEMEN_REPO_CREDENTIALS_ID}"
               description: "HTTPS-Zugang zum Themenrepo"
               username: "${THEMEN_REPO_GIT_USERNAME}"

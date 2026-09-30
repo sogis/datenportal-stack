@@ -28,7 +28,7 @@ def validate():
     for key in required:
         if not config.get(key) or 'BUCKET' in config[key] or 'REGION' in config[key]:
             raise ValueError(f'{key}: konkreter Wert fehlt.')
-    for key in ['S3_ENDPOINT', 'DOWNLOAD_BASE_URL', 'PUBLICATION_MANIFEST_URL']:
+    for key in ['S3_ENDPOINT', 'DOWNLOAD_BASE_URL', 'PUBLICATION_MANIFEST_URL', 'THEMEN_REPO_URL']:
         parsed = urlparse(config[key])
         if (parsed.scheme != 'https' or not parsed.hostname or parsed.username
                 or parsed.password or parsed.query or parsed.fragment

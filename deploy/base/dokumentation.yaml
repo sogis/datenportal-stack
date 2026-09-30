@@ -16,7 +16,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: dokumentation
-          image: sogis/datenportal-dokumentation:latest
+          image: sogis/datenportal-dokumentation:0.1.18
           ports:
             - {name: http, containerPort: 8080}
           securityContext:

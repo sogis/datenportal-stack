@@ -16,7 +16,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: sodata
-          image: sogis/datenportal-sodata:0.1.5
+          image: sogis/datenportal-sodata:0.1.11
           imagePullPolicy: IfNotPresent
           ports:
             - {name: http, containerPort: 8080}

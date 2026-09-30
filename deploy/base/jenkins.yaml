@@ -27,7 +27,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       initContainers:
         - name: gradle-cache
-          image: sogis/datenportal-jenkins:0.1.0-2
+          image: sogis/datenportal-jenkins:0.1.0-3
           imagePullPolicy: IfNotPresent
           command: [/bin/sh, -ec]
           args:
@@ -44,7 +44,7 @@ spec:
             - {name: home, mountPath: /var/jenkins_home}
       containers:
         - name: jenkins
-          image: sogis/datenportal-jenkins:0.1.0-2
+          image: sogis/datenportal-jenkins:0.1.0-3
           imagePullPolicy: IfNotPresent
           ports:
             - {name: http, containerPort: 8080}

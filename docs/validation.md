@@ -1,3 +1,13 @@
+# Aktueller Prüfstand: 30. September 2026
+
+Der [Abgleich von Kapitel 2/3 und Stack](validation-2026-09-30.md) verwendet
+Jenkins `0.1.0-3`, natives Sodata `0.1.11` und Dokumentation `0.1.18`.
+Alle fünf Anwendungsimages unterstützen AMD64 und ARM64. Die folgenden
+älteren Ergebnisse bleiben als historischer Nachweis erhalten; ihre damalige
+Architekturgrenze gilt nicht mehr für die aktuellen Pins.
+
+---
+
 # Prüfstand vom 28. September 2026
 
 ## Umsetzung und tatsächlich ausgeführte Prüfungen
