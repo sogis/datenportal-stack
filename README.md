@@ -11,9 +11,13 @@ bauen keine Anwendungsimages. Lokale Build-Hilfen sind optional.
 
 ## Registry-Start auf CRC
 
-Voraussetzungen: gestartetes [CRC](local/crc/README.md), Anmeldung per `oc`,
+Voraussetzungen: gestartetes [CRC](local/crc/README.md), Anmeldung per `oc` als
+lokaler OpenShift-Administrator `kubeadmin`,
 Python 3, curl und Docker-CLI für Registry-Metadaten (kein Docker-Daemon nötig).
-Der normale Ablauf benötigt weder Java/Maven noch Komponenten-Checkouts.
+Der normale Ablauf benötigt weder Java/Maven noch Komponenten-Checkouts;
+Kapitel 2 mit Docker Compose ist keine Voraussetzung. Die CRC-CA für curl und
+Browser nach der [CRC-Anleitung](local/crc/README.md#https-zugänge-prüfen)
+bereitstellen. Die späteren Jenkins-Zugangsdaten sind davon unabhängig.
 
 Die gemeinsamen Images entsprechen Kapitel 2 der Betriebsdoku: Jenkins
 `0.1.0-3`, natives Sodata `0.1.11`, Dokumentation `0.1.18`, Editor `0.1.4` und
@@ -28,19 +32,28 @@ bei fehlender Unterstützung ab; es gibt keinen automatischen Build-Fallback.
    `config.env` ergänzen; S3-Zugangsdaten in `secrets.env`. Format `KEY=value`,
    ohne Shell-Quotes/Expansion. Jenkins-Passwort und Reload-Token sind zufällig
    erzeugt. V1 verwendet Access/Secret Key ohne Session-Token.
-3. Für einen frischen Testbestand `./scripts/deploy-crc.sh --bootstrap`
+3. Den Publikationsbestand vor dem Start unterscheiden: Nur für einen
+   nachweislich neuen Testbestand mit öffentlichem HTTP 404 am Manifest
+   `./scripts/deploy-crc.sh --bootstrap`
    ausführen. Dies startet Gateway, Jenkins, Editor und Dokumentation mit
    gestopptem Sodata. Ein bereits laufendes Portal verhindert den Bootstrap.
-4. In Jenkins anmelden, Seed prüfen, danach den Publikationsbestand nach der
+   Bei vorhandenem gültigen Bestand direkt `./scripts/deploy-crc.sh` verwenden;
+   dies prüft Manifest und Artefakte und startet auch Sodata. Bei HTTP 403,
+   TLS-/Netzfehlern oder beschädigtem Manifest zuerst die Ursache klären.
+4. In Jenkins anmelden und Seed prüfen. Ausschliesslich den neuen Bestand nach der
    [Betriebsanleitung](https://github.com/sogis/datenportal-dokumentation-betrieb)
-   kontrolliert initialisieren. Ein Seed allein publiziert noch keine Daten.
-5. `./scripts/start-portal.sh` prüft Manifest und referenzierte Artefakte und
-   startet Sodata. `./scripts/smoke-test.sh` prüft Zugänge und Sperren.
+   kontrolliert initialisieren. Bei vorhandenem Bestand die Initialisierung
+   überspringen. Ein Seed allein publiziert noch keine Daten.
+5. Nur nach Erstpublikation mit gestopptem Sodata `./scripts/start-portal.sh`
+   ausführen. `./scripts/smoke-test.sh` prüft in beiden Fällen Zugänge und Sperren.
+   Bei Wiederanlauf bekannte Daten im Portal prüfen; weitere Beispieluploads
+   sind optionale Schreibvorgänge und können vorhandene Ausgaben ersetzen.
 6. Bei vorhandenem Bestand und für spätere Updates `./scripts/deploy-crc.sh`
    ohne Bootstrap verwenden. Sodata bleibt auf einer Instanz; vor dem Apply
    werden Manifest und Imagearchitektur geprüft.
 
-Alle CRC-Skripte akzeptieren ausschliesslich `https://api.crc.testing:6443`.
+Die Deployment-, Portalstart- und Smoke-Test-Skripte akzeptieren ausschliesslich
+`https://api.crc.testing:6443`.
 CRC benötigt keine AIO-/AD-Anbindung, aber Zugriff auf den externen Testbucket.
 Jenkins verwendet das konfigurierte Remote-Themenrepo, standardmässig
 `https://github.com/sogis/datenportal-themenrepo.git`, Branch `main`.
@@ -64,6 +77,10 @@ Deployment-Aufruf, ohne erneuten Bootstrap.
 Jenkins-Benutzer `admin`, Passwort aus `secrets.env` (`JENKINS_ADMIN_PASSWORD`).
 CRC setzt `JENKINS_RUNTIME_MODE=dev` und bindet die eigene JCasC über
 `CASC_JENKINS_CONFIG` ein; der Modus allein wählt keine Konfigurationsdatei.
+`dev` gehört zum lokalen Test. Reguläre Zielcluster, einschliesslich zentraler
+Integrationsumgebungen mit der späteren Betriebsanbindung, verwenden
+`production` und die Betreiber-JCasC mit AD. Der Wert ist keine Freigabe
+produktiver Daten und aktiviert allein keine AD-Anmeldung.
 Das öffentliche Themenrepo verwendet eine leere Git-Credentials-ID und kein
 Git-Rückschreiben. S3-Schlüssel werden aus `stack-secrets` als Gradle-Variablen
 übergeben, nicht als Jenkins-Git-Credentials. Jenkins und Sodata erhalten den
@@ -100,6 +117,16 @@ ConfigMap-Änderungen erzeugen neue Pods durch Kustomize-Namenshashes.
 Bei Secret-Änderungen betroffene Deployments gezielt mit
 `oc -n datenportal rollout restart deployment/NAME` neu starten.
 Das Betreiber-Overlay ist eine Vorlage, keine produktive Betriebsfreigabe.
+
+Für den späteren Zielcluster zuerst die Voraussetzungen aus Kapitel 4 der
+[Betriebsdokumentation](https://github.com/sogis/datenportal-dokumentation-betrieb)
+klären, dann der [Betreiber-Anleitung](deploy/overlays/operator/README.md) folgen.
+Es entsteht eine eigenständige Installation mit eigenem Jenkins-PVC, Secrets
+und Zieladressen. CRC-Passwort, Reload-Token und Testbucket sind keine
+Produktionsvorgaben; eine Datenmigration ist ein eigener Ablauf. Neue Cluster
+mit vorhandenem gültigen Publikationsbestand benötigen keine Erstinitialisierung.
+Lokale Verarbeitung, Publikation und Reload ersetzen nicht die Abnahme von AD,
+fachlichen Benutzerrechten und Plattformbetrieb im Zielcluster.
 
 ## Externes S3 und Erstpublikation
 
