@@ -130,9 +130,11 @@ fachlichen Benutzerrechten und Plattformbetrieb im Zielcluster.
 
 ## Externes S3 und Erstpublikation
 
-Bucket-Provisionierung bleibt ausserhalb des Repos. AWS-Default:
-`S3_ACL=bucket-owner-full-control`; GRETL setzt bei leerem Wert `private`.
-Öffentliches Lesen über Bucket-/CDN-Policy separat bereitstellen.
+Bucket-Provisionierung bleibt ausserhalb des Repos. Die CRC- und Betreiber-Vorlagen
+verwenden `S3_ACL=public-read` für öffentlich lesbare Publikationsobjekte; der Bucket
+muss dafür öffentliche Objekt-ACLs erlauben. GRETL setzt bei leerem Wert `private`,
+deshalb die ACL explizit konfigurieren. Bei AWS Bucket-owner-enforced stattdessen
+`bucket-owner-full-control` und eine öffentliche Bucket- oder CDN-Policy verwenden.
 Manifest und Artefakte müssen ohne Zugangsdaten über HTTPS erreichbar sein.
 CORS für Portal-Origin, GET/HEAD/OPTIONS, Range-Anfragen und exponierte Header
 `ETag`, `Content-Length`, `Content-Type`, `Content-Range`, `Accept-Ranges`

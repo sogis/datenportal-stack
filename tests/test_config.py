@@ -17,7 +17,7 @@ class ConfigTest(unittest.TestCase):
         self.addCleanup(setattr, module, 'OVERLAY', previous)
         module.OVERLAY = Path(self.directory.name)
         self.config = dict(S3_ENDPOINT='https://s3.example.org', S3_REGION='test',
-                           S3_BUCKET='test', S3_ACL='bucket-owner-full-control',
+                           S3_BUCKET='test', S3_ACL='public-read',
                            DOWNLOAD_BASE_URL='https://downloads.example.org/test',
                            PUBLICATION_MANIFEST_URL='https://downloads.example.org/test/current.json',
                            THEMEN_REPO_URL='https://example.org/themes.git', THEMEN_REPO_BRANCH='main',
